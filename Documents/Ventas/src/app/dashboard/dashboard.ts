@@ -49,6 +49,26 @@ import * as d3 from 'd3';
         <div class="bg-white p-6 rounded-3xl shadow-sm border border-zinc-200/60 group hover:border-emerald-200 transition-all">
           <div class="flex justify-between items-start mb-4">
             <div class="p-2 bg-emerald-50 rounded-xl text-emerald-600">
+              <mat-icon class="text-sm">account_balance_wallet</mat-icon>
+            </div>
+          </div>
+          <span class="text-[10px] font-bold text-zinc-400 uppercase tracking-widest">Saldo Efectivo</span>
+          <p class="text-xl font-black text-zinc-900 mt-1 font-mono">{{ getAccountBalance('cash') | currency }}</p>
+        </div>
+
+        <div class="bg-white p-6 rounded-3xl shadow-sm border border-zinc-200/60 group hover:border-blue-200 transition-all">
+          <div class="flex justify-between items-start mb-4">
+            <div class="p-2 bg-blue-50 rounded-xl text-blue-600">
+              <mat-icon class="text-sm">account_balance</mat-icon>
+            </div>
+          </div>
+          <span class="text-[10px] font-bold text-zinc-400 uppercase tracking-widest">Saldo Transferencia</span>
+          <p class="text-xl font-black text-zinc-900 mt-1 font-mono">{{ getAccountBalance('transfer') | currency }}</p>
+        </div>
+
+        <div class="bg-white p-6 rounded-3xl shadow-sm border border-zinc-200/60 group hover:border-emerald-200 transition-all">
+          <div class="flex justify-between items-start mb-4">
+            <div class="p-2 bg-emerald-50 rounded-xl text-emerald-600">
               <mat-icon class="text-sm">payments</mat-icon>
             </div>
           </div>
@@ -422,6 +442,10 @@ export class Dashboard implements AfterViewInit {
   totalExpenses = computed(() => this.filteredExpenses().reduce((sum, item) => sum + item.amount, 0));
   totalInvested = computed(() => this.filteredInvestments().reduce((sum, item) => sum + item.capital, 0));
   totalInvestmentCombined = computed(() => this.totalInvested() + this.totalExpenses());
+
+  getAccountBalance(type: 'cash' | 'transfer') {
+    return this.financeService.accounts().find(a => a.id === type)?.balance || 0;
+  }
 
   grossProfitPct = computed(() => (this.totalGrossProfit() / (this.totalRevenue() || 1)) * 100);
   netProfitPct = computed(() => (this.totalNetProfit() / (this.totalRevenue() || 1)) * 100);

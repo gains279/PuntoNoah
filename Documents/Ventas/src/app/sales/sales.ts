@@ -171,12 +171,12 @@ import { ConfirmModal } from '../shared/confirm-modal';
                     <div class="grid grid-cols-2 gap-4 animate-in fade-in slide-in-from-top-2">
                       <div class="space-y-2">
                         <label for="splitCash" class="text-[10px] font-black text-zinc-400 uppercase tracking-widest ml-1">Monto Efectivo</label>
-                        <input id="splitCash" type="number" [(ngModel)]="cashAmount" name="cashAmount" 
+                        <input id="splitCash" type="number" [(ngModel)]="cashAmount" (ngModelChange)="onCashChange($event)" name="cashAmount" 
                                class="w-full p-3 md:p-4 bg-zinc-50 border border-zinc-200 rounded-2xl focus:ring-2 focus:ring-zinc-900 outline-none font-bold text-zinc-900 font-mono text-sm md:text-base">
                       </div>
                       <div class="space-y-2">
                         <label for="splitTransfer" class="text-[10px] font-black text-zinc-400 uppercase tracking-widest ml-1">Monto Transferencia</label>
-                        <input id="splitTransfer" type="number" [(ngModel)]="transferAmount" name="transferAmount" 
+                        <input id="splitTransfer" type="number" [(ngModel)]="transferAmount" (ngModelChange)="onTransferChange($event)" name="transferAmount" 
                                class="w-full p-3 md:p-4 bg-zinc-50 border border-zinc-200 rounded-2xl focus:ring-2 focus:ring-zinc-900 outline-none font-bold text-zinc-900 font-mono text-sm md:text-base">
                       </div>
                     </div>
@@ -310,6 +310,14 @@ export class Sales {
   cashAmount = 0;
   transferAmount = 0;
   saleDate = signal(Date.now());
+
+  onCashChange(val: number) {
+    this.transferAmount = Math.max(0, this.cartTotal() - val);
+  }
+
+  onTransferChange(val: number) {
+    this.cashAmount = Math.max(0, this.cartTotal() - val);
+  }
 
   filteredProductsForSale = computed(() => {
     const term = this.productSearchTerm().toLowerCase();

@@ -79,6 +79,23 @@ import { CommonModule } from '@angular/common';
           </div>
         </div>
 
+        <div class="pt-4 md:pt-6 border-t border-zinc-100">
+          <p class="text-zinc-500 text-xs md:text-sm font-medium">Configuración de Intercambios de Saldo.</p>
+        </div>
+
+        <div class="space-y-4">
+          <div class="flex flex-col sm:flex-row sm:items-center justify-between p-4 md:p-6 bg-zinc-50 rounded-2xl md:rounded-3xl border border-zinc-100 gap-4">
+            <div>
+              <span class="block font-black text-zinc-900 tracking-tight text-sm md:text-base">Comisión de Intercambio</span>
+              <span class="text-[10px] md:text-xs text-zinc-400 font-medium">Porcentaje cobrado al pasar de Transferencia a Efectivo</span>
+            </div>
+            <div class="flex items-center gap-2 self-end sm:self-auto">
+              <input type="number" [(ngModel)]="localSettings.exchangeCommissionPct" class="w-20 p-2 bg-white border border-zinc-200 rounded-xl text-right font-mono font-bold text-zinc-900">
+              <span class="font-black text-zinc-400">%</span>
+            </div>
+          </div>
+        </div>
+
         <div class="pt-6 border-t border-zinc-100 flex flex-col md:flex-row justify-between items-center gap-4">
           <div class="text-xs md:text-sm font-bold" [class.text-red-500]="totalPct() !== 100" [class.text-emerald-600]="totalPct() === 100">
             Total: <span class="text-lg md:text-xl font-black font-mono">{{totalPct()}}%</span>

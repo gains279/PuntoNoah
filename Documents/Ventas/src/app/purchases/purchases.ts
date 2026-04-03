@@ -3,7 +3,7 @@ import { CommonModule, CurrencyPipe, DatePipe } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { MatIconModule } from '@angular/material/icon';
 import { FinanceService } from '../finance.service';
-import { Product, PurchaseItem } from '../models';
+import { Product, PurchaseItem, PaymentMethod } from '../models';
 
 @Component({
   selector: 'app-purchases',
@@ -118,13 +118,54 @@ import { Product, PurchaseItem } from '../models';
                   <span class="text-2xl font-black text-emerald-600 font-mono">{{ cartTotal() | currency }}</span>
                 </div>
 
+                <!-- Payment Method Selection -->
+                <div class="space-y-3">
+                  <span class="text-[10px] font-black text-zinc-400 uppercase tracking-widest ml-1 block">Método de Pago</span>
+                  <div class="grid grid-cols-3 gap-2">
+                    <button (click)="paymentMethod.set('cash')" 
+                            [class.bg-zinc-900]="paymentMethod() === 'cash'"
+                            [class.text-white]="paymentMethod() === 'cash'"
+                            [class.bg-zinc-50]="paymentMethod() !== 'cash'"
+                            class="p-3 rounded-xl text-[10px] font-bold uppercase tracking-tight transition-all border border-zinc-200/50">
+                      Efectivo
+                    </button>
+                    <button (click)="paymentMethod.set('transfer')" 
+                            [class.bg-zinc-900]="paymentMethod() === 'transfer'"
+                            [class.text-white]="paymentMethod() === 'transfer'"
+                            [class.bg-zinc-50]="paymentMethod() !== 'transfer'"
+                            class="p-3 rounded-xl text-[10px] font-bold uppercase tracking-tight transition-all border border-zinc-200/50">
+                      Transf.
+                    </button>
+                    <button (click)="paymentMethod.set('split')" 
+                            [class.bg-zinc-900]="paymentMethod() === 'split'"
+                            [class.text-white]="paymentMethod() === 'split'"
+                            [class.bg-zinc-50]="paymentMethod() !== 'split'"
+                            class="p-3 rounded-xl text-[10px] font-bold uppercase tracking-tight transition-all border border-zinc-200/50">
+                      Dividido
+                    </button>
+                  </div>
+
+                  @if (paymentMethod() === 'split') {
+                    <div class="grid grid-cols-2 gap-3 p-4 bg-zinc-50 rounded-2xl border border-zinc-100 animate-in fade-in slide-in-from-top-2 duration-300">
+                      <div class="space-y-1">
+                        <label for="splitCash" class="text-[10px] font-bold text-zinc-400 uppercase">Efectivo</label>
+                        <input id="splitCash" type="number" [(ngModel)]="cashAmount" (ngModelChange)="onCashChange($event)" class="w-full p-2 bg-white border border-zinc-200 rounded-xl text-sm font-bold font-mono">
+                      </div>
+                      <div class="space-y-1">
+                        <label for="splitTransfer" class="text-[10px] font-bold text-zinc-400 uppercase">Transf.</label>
+                        <input id="splitTransfer" type="number" [(ngModel)]="transferAmount" (ngModelChange)="onTransferChange($event)" class="w-full p-2 bg-white border border-zinc-200 rounded-xl text-sm font-bold font-mono">
+                      </div>
+                    </div>
+                  }
+                </div>
+
                 <div class="space-y-3">
                   <input type="text" [(ngModel)]="supplier" placeholder="Proveedor (Opcional)" class="w-full p-3 bg-zinc-50 border border-zinc-200 rounded-xl text-sm font-medium">
                   <textarea [(ngModel)]="description" placeholder="Notas de la compra..." class="w-full p-3 bg-zinc-50 border border-zinc-200 rounded-xl text-sm font-medium h-20 resize-none"></textarea>
                 </div>
 
                 <button (click)="finalizePurchase()" 
-                        [disabled]="cart().length === 0"
+                        [disabled]="cart().length === 0 || !isPaymentValid()"
                         class="w-full py-4 bg-emerald-500 hover:bg-emerald-600 disabled:bg-zinc-200 text-white rounded-2xl font-black shadow-lg shadow-emerald-200 transition-all flex items-center justify-center gap-2">
                   <mat-icon>check_circle</mat-icon>
                   REGISTRAR COMPRA
@@ -211,6 +252,9 @@ export class Purchases {
   cart = signal<PurchaseItem[]>([]);
   supplier = '';
   description = '';
+  paymentMethod = signal<PaymentMethod>('cash');
+  cashAmount = 0;
+  transferAmount = 0;
 
   filteredProducts = computed(() => {
     const query = this.searchQuery.toLowerCase();
@@ -222,6 +266,22 @@ export class Purchases {
   cartTotal = computed(() => {
     return this.cart().reduce((sum, item) => sum + (item.quantity * item.costPrice), 0);
   });
+
+  isPaymentValid = computed(() => {
+    const total = this.cartTotal();
+    if (this.paymentMethod() === 'split') {
+      return Math.abs((this.cashAmount + this.transferAmount) - total) < 0.01;
+    }
+    return true;
+  });
+
+  onCashChange(val: number) {
+    this.transferAmount = Math.max(0, this.cartTotal() - val);
+  }
+
+  onTransferChange(val: number) {
+    this.cashAmount = Math.max(0, this.cartTotal() - val);
+  }
 
   getProduct(id: string) {
     return this.financeService.products().find(p => p.id === id);
@@ -247,12 +307,26 @@ export class Purchases {
   }
 
   finalizePurchase() {
-    if (this.cart().length === 0) return;
+    if (this.cart().length === 0 || !this.isPaymentValid()) return;
+
+    let finalCash = 0;
+    let finalTransfer = 0;
+    const total = this.cartTotal();
+
+    if (this.paymentMethod() === 'cash') finalCash = total;
+    else if (this.paymentMethod() === 'transfer') finalTransfer = total;
+    else {
+      finalCash = this.cashAmount;
+      finalTransfer = this.transferAmount;
+    }
 
     this.financeService.addPurchase({
       items: [...this.cart()],
       date: Date.now(),
-      totalAmount: this.cartTotal(),
+      paymentMethod: this.paymentMethod(),
+      cashAmount: finalCash,
+      transferAmount: finalTransfer,
+      totalAmount: total,
       supplier: this.supplier,
       description: this.description
     });
@@ -261,6 +335,9 @@ export class Purchases {
     this.cart.set([]);
     this.supplier = '';
     this.description = '';
+    this.cashAmount = 0;
+    this.transferAmount = 0;
+    this.paymentMethod.set('cash');
     this.viewMode.set('history');
   }
 

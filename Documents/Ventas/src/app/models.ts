@@ -63,9 +63,28 @@ export interface Purchase {
   id: string;
   items: PurchaseItem[];
   date: number;
+  paymentMethod: PaymentMethod;
+  cashAmount: number;
+  transferAmount: number;
   totalAmount: number;
   supplier?: string;
   description?: string;
+}
+
+export interface Account {
+  id: 'cash' | 'transfer';
+  name: string;
+  balance: number;
+}
+
+export interface AccountTransaction {
+  id: string;
+  accountId: 'cash' | 'transfer';
+  type: 'entry' | 'exit';
+  amount: number;
+  reason: string;
+  date: number;
+  referenceId?: string; // ID of the sale, purchase, or exchange
 }
 
 export interface AppSettings {
@@ -75,6 +94,7 @@ export interface AppSettings {
   profitPct: number;
   netProfitPct: number;
   othersPct: number;
+  exchangeCommissionPct: number;
 }
 
 export interface StockMovement {

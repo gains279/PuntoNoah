@@ -1,6 +1,6 @@
 import { Injectable, signal, computed, effect, inject, PLATFORM_ID } from '@angular/core';
 import { isPlatformBrowser } from '@angular/common';
-import { Product, Sale, SaleItem, Investment, Expense, AppSettings, StockMovement, Purchase, PurchaseItem } from './models';
+import { Product, Sale, SaleItem, Investment, Expense, AppSettings, StockMovement, Purchase, PurchaseItem, Account, AccountTransaction } from './models';
 
 @Injectable({
   providedIn: 'root'
@@ -16,13 +16,19 @@ export class FinanceService {
   expenses = signal<Expense[]>([]);
   purchases = signal<Purchase[]>([]);
   stockMovements = signal<StockMovement[]>([]);
+  accounts = signal<Account[]>([
+    { id: 'cash', name: 'Efectivo', balance: 0 },
+    { id: 'transfer', name: 'Transferencia', balance: 0 }
+  ]);
+  accountTransactions = signal<AccountTransaction[]>([]);
   settings = signal<AppSettings>({
     appName: 'FINANZAS PRO',
     recoveryPct: 5,
     reinvestmentPct: 20,
     profitPct: 75,
     netProfitPct: 73,
-    othersPct: 2
+    othersPct: 2,
+    exchangeCommissionPct: 0
   });
 
   constructor() {
@@ -39,6 +45,8 @@ export class FinanceService {
         expenses: this.expenses(),
         purchases: this.purchases(),
         stockMovements: this.stockMovements(),
+        accounts: this.accounts(),
+        accountTransactions: this.accountTransactions(),
         settings: this.settings()
       };
       if (this.isBrowser) {
@@ -74,6 +82,8 @@ export class FinanceService {
         if (data.expenses) this.expenses.set(data.expenses);
         if (data.purchases) this.purchases.set(data.purchases);
         if (data.stockMovements) this.stockMovements.set(data.stockMovements);
+        if (data.accounts) this.accounts.set(data.accounts);
+        if (data.accountTransactions) this.accountTransactions.set(data.accountTransactions);
         if (data.settings) {
           this.settings.set({
             ...this.settings(),
@@ -235,6 +245,26 @@ export class FinanceService {
       return p;
     }));
 
+    // Update account balances
+    if (sale.cashAmount > 0) {
+      this.addAccountTransaction({
+        accountId: 'cash',
+        type: 'entry',
+        amount: sale.cashAmount,
+        reason: `Venta: ${newSale.id}`,
+        referenceId: newSale.id
+      });
+    }
+    if (sale.transferAmount > 0) {
+      this.addAccountTransaction({
+        accountId: 'transfer',
+        type: 'entry',
+        amount: sale.transferAmount,
+        reason: `Venta: ${newSale.id}`,
+        referenceId: newSale.id
+      });
+    }
+
     this.sales.update(prev => [...prev, newSale]);
   }
 
@@ -254,6 +284,27 @@ export class FinanceService {
       return { ...p, stock: newStock };
     }));
 
+    // Revert old account transactions and add new ones
+    this.revertAccountTransactions(sale.id);
+    if (sale.cashAmount > 0) {
+      this.addAccountTransaction({
+        accountId: 'cash',
+        type: 'entry',
+        amount: sale.cashAmount,
+        reason: `Venta (Actualizada): ${sale.id}`,
+        referenceId: sale.id
+      });
+    }
+    if (sale.transferAmount > 0) {
+      this.addAccountTransaction({
+        accountId: 'transfer',
+        type: 'entry',
+        amount: sale.transferAmount,
+        reason: `Venta (Actualizada): ${sale.id}`,
+        referenceId: sale.id
+      });
+    }
+
     this.sales.update(prev => prev.map(item => item.id === sale.id ? sale : item));
   }
 
@@ -268,6 +319,9 @@ export class FinanceService {
         }
         return p;
       }));
+
+      // Revert account transactions
+      this.revertAccountTransactions(id);
     }
     this.sales.update(prev => prev.filter(item => item.id !== id));
   }
@@ -320,6 +374,26 @@ export class FinanceService {
       return p;
     }));
 
+    // Update account balances
+    if (purchase.cashAmount > 0) {
+      this.addAccountTransaction({
+        accountId: 'cash',
+        type: 'exit',
+        amount: purchase.cashAmount,
+        reason: `Compra: ${newPurchase.id}`,
+        referenceId: newPurchase.id
+      });
+    }
+    if (purchase.transferAmount > 0) {
+      this.addAccountTransaction({
+        accountId: 'transfer',
+        type: 'exit',
+        amount: purchase.transferAmount,
+        reason: `Compra: ${newPurchase.id}`,
+        referenceId: newPurchase.id
+      });
+    }
+
     this.purchases.update(prev => [...prev, newPurchase]);
   }
 
@@ -342,6 +416,27 @@ export class FinanceService {
       return { ...p, stock: newStock, costPrice: latestCost };
     }));
 
+    // Revert old account transactions and add new ones
+    this.revertAccountTransactions(purchase.id);
+    if (purchase.cashAmount > 0) {
+      this.addAccountTransaction({
+        accountId: 'cash',
+        type: 'exit',
+        amount: purchase.cashAmount,
+        reason: `Compra (Actualizada): ${purchase.id}`,
+        referenceId: purchase.id
+      });
+    }
+    if (purchase.transferAmount > 0) {
+      this.addAccountTransaction({
+        accountId: 'transfer',
+        type: 'exit',
+        amount: purchase.transferAmount,
+        reason: `Compra (Actualizada): ${purchase.id}`,
+        referenceId: purchase.id
+      });
+    }
+
     this.purchases.update(prev => prev.map(item => item.id === purchase.id ? purchase : item));
   }
 
@@ -356,6 +451,9 @@ export class FinanceService {
         }
         return p;
       }));
+
+      // Revert account transactions
+      this.revertAccountTransactions(id);
     }
     this.purchases.update(prev => prev.filter(item => item.id !== id));
   }
@@ -378,6 +476,74 @@ export class FinanceService {
     this.stockMovements.update(prev => [...prev, newMovement]);
   }
 
+  // Account Management
+  addAccountTransaction(transaction: Omit<AccountTransaction, 'id' | 'date'>) {
+    const newTransaction: AccountTransaction = {
+      ...transaction,
+      id: crypto.randomUUID(),
+      date: Date.now()
+    };
+
+    this.accounts.update(prev => prev.map(acc => {
+      if (acc.id === transaction.accountId) {
+        const newBalance = transaction.type === 'entry' 
+          ? acc.balance + transaction.amount 
+          : acc.balance - transaction.amount;
+        return { ...acc, balance: newBalance };
+      }
+      return acc;
+    }));
+
+    this.accountTransactions.update(prev => [newTransaction, ...prev]);
+  }
+
+  revertAccountTransactions(referenceId: string) {
+    const txsToRevert = this.accountTransactions().filter(tx => tx.referenceId === referenceId);
+    
+    this.accounts.update(prev => prev.map(acc => {
+      const accTxs = txsToRevert.filter(tx => tx.accountId === acc.id);
+      let balanceAdjustment = 0;
+      accTxs.forEach(tx => {
+        if (tx.type === 'entry') balanceAdjustment -= tx.amount;
+        else balanceAdjustment += tx.amount;
+      });
+      return { ...acc, balance: acc.balance + balanceAdjustment };
+    }));
+
+    this.accountTransactions.update(prev => prev.filter(tx => tx.referenceId !== referenceId));
+  }
+
+  exchangeTransferToCash(amount: number, reason = 'Intercambio Transferencia por Efectivo') {
+    const transferAcc = this.accounts().find(a => a.id === 'transfer');
+    if (!transferAcc || transferAcc.balance < amount) {
+      throw new Error('Saldo insuficiente en Transferencia');
+    }
+
+    const s = this.settings();
+    const commission = amount * (s.exchangeCommissionPct / 100);
+    const netAmount = amount - commission;
+
+    const exchangeId = crypto.randomUUID();
+
+    // Exit from transfer
+    this.addAccountTransaction({
+      accountId: 'transfer',
+      type: 'exit',
+      amount: amount,
+      reason: reason + (commission > 0 ? ` (Comisión: ${commission})` : ''),
+      referenceId: exchangeId
+    });
+
+    // Entry to cash
+    this.addAccountTransaction({
+      accountId: 'cash',
+      type: 'entry',
+      amount: netAmount,
+      reason: reason,
+      referenceId: exchangeId
+    });
+  }
+
   // Settings
   updateSettings(settings: AppSettings) {
     this.settings.set(settings);
@@ -390,13 +556,19 @@ export class FinanceService {
     this.expenses.set([]);
     this.purchases.set([]);
     this.stockMovements.set([]);
+    this.accounts.set([
+      { id: 'cash', name: 'Efectivo', balance: 0 },
+      { id: 'transfer', name: 'Transferencia', balance: 0 }
+    ]);
+    this.accountTransactions.set([]);
     this.settings.set({
       appName: 'FINANZAS PRO',
       recoveryPct: 5,
       reinvestmentPct: 20,
       profitPct: 75,
       netProfitPct: 73,
-      othersPct: 2
+      othersPct: 2,
+      exchangeCommissionPct: 0
     });
     if (this.isBrowser) {
       localStorage.removeItem(this.STORAGE_KEY);
