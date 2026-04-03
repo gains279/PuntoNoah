@@ -47,6 +47,7 @@ export class App implements OnInit {
     { path: '/sales', icon: 'shopping_cart', label: 'Ventas' },
     { path: '/investments', icon: 'account_balance', label: 'Inversiones' },
     { path: '/expenses', icon: 'money_off', label: 'Gastos' },
+    { path: '/purchases', icon: 'shopping_bag', label: 'Compras' },
     { path: '/settings', icon: 'settings', label: 'Configuración' },
   ];
 }

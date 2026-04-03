@@ -1,6 +1,6 @@
 import { Injectable, signal, computed, effect, inject, PLATFORM_ID } from '@angular/core';
 import { isPlatformBrowser } from '@angular/common';
-import { Product, Sale, SaleItem, Investment, Expense, AppSettings, StockMovement } from './models';
+import { Product, Sale, SaleItem, Investment, Expense, AppSettings, StockMovement, Purchase, PurchaseItem } from './models';
 
 @Injectable({
   providedIn: 'root'
@@ -14,6 +14,7 @@ export class FinanceService {
   sales = signal<Sale[]>([]);
   investments = signal<Investment[]>([]);
   expenses = signal<Expense[]>([]);
+  purchases = signal<Purchase[]>([]);
   stockMovements = signal<StockMovement[]>([]);
   settings = signal<AppSettings>({
     appName: 'FINANZAS PRO',
@@ -36,6 +37,7 @@ export class FinanceService {
         sales: this.sales(),
         investments: this.investments(),
         expenses: this.expenses(),
+        purchases: this.purchases(),
         stockMovements: this.stockMovements(),
         settings: this.settings()
       };
@@ -70,6 +72,7 @@ export class FinanceService {
           this.investments.set(migrated);
         }
         if (data.expenses) this.expenses.set(data.expenses);
+        if (data.purchases) this.purchases.set(data.purchases);
         if (data.stockMovements) this.stockMovements.set(data.stockMovements);
         if (data.settings) {
           this.settings.set({
@@ -297,6 +300,66 @@ export class FinanceService {
     this.expenses.update(prev => prev.filter(item => item.id !== id));
   }
 
+  // Purchase CRUD
+  addPurchase(purchase: Omit<Purchase, 'id'>) {
+    const newPurchase: Purchase = {
+      ...purchase,
+      id: crypto.randomUUID()
+    };
+
+    // Update stock and cost price
+    this.products.update(prev => prev.map(p => {
+      const purchaseItem = purchase.items.find((item: PurchaseItem) => item.productId === p.id);
+      if (purchaseItem) {
+        // Update stock
+        const newStock = p.stock + purchaseItem.quantity;
+        // Optionally update cost price (weighted average or just latest?)
+        // Let's just update to the latest cost price for simplicity in this app
+        return { ...p, stock: newStock, costPrice: purchaseItem.costPrice };
+      }
+      return p;
+    }));
+
+    this.purchases.update(prev => [...prev, newPurchase]);
+  }
+
+  updatePurchase(purchase: Purchase) {
+    const oldPurchase = this.purchases().find(p => p.id === purchase.id);
+    if (!oldPurchase) return;
+
+    // Revert old stock
+    this.products.update(prev => prev.map(p => {
+      const oldItem = oldPurchase.items.find((item: PurchaseItem) => item.productId === p.id);
+      let newStock = p.stock;
+      if (oldItem) newStock -= oldItem.quantity;
+
+      const newItem = purchase.items.find((item: PurchaseItem) => item.productId === p.id);
+      if (newItem) newStock += newItem.quantity;
+
+      // Update to latest cost price from the new purchase
+      const latestCost = newItem ? newItem.costPrice : p.costPrice;
+
+      return { ...p, stock: newStock, costPrice: latestCost };
+    }));
+
+    this.purchases.update(prev => prev.map(item => item.id === purchase.id ? purchase : item));
+  }
+
+  deletePurchase(id: string) {
+    const purchase = this.purchases().find(p => p.id === id);
+    if (purchase) {
+      // Revert stock
+      this.products.update(prev => prev.map(p => {
+        const item = purchase.items.find((pi: PurchaseItem) => pi.productId === p.id);
+        if (item) {
+          return { ...p, stock: p.stock - item.quantity };
+        }
+        return p;
+      }));
+    }
+    this.purchases.update(prev => prev.filter(item => item.id !== id));
+  }
+
   // Stock Movements
   adjustStock(movement: Omit<StockMovement, 'id' | 'date'>) {
     const newMovement: StockMovement = {
@@ -325,6 +388,7 @@ export class FinanceService {
     this.sales.set([]);
     this.investments.set([]);
     this.expenses.set([]);
+    this.purchases.set([]);
     this.stockMovements.set([]);
     this.settings.set({
       appName: 'FINANZAS PRO',
@@ -357,8 +421,12 @@ export class FinanceService {
     return this.expenses().reduce((sum, exp) => sum + exp.amount, 0);
   });
 
+  totalPurchases = computed(() => {
+    return this.purchases().reduce((sum, p) => sum + p.totalAmount, 0);
+  });
+
   totalOutgoings = computed(() => {
-    return this.totalInvested() + this.totalExpenses();
+    return this.totalInvested() + this.totalExpenses() + this.totalPurchases();
   });
 
   uniquePeople = computed(() => {

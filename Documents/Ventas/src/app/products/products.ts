@@ -3,20 +3,31 @@ import { FinanceService } from '../finance.service';
 import { Product } from '../models';
 import { MatIconModule } from '@angular/material/icon';
 import { FormsModule } from '@angular/forms';
-import { CommonModule } from '@angular/common';
+import { CommonModule, CurrencyPipe } from '@angular/common';
 import { ConfirmModal } from '../shared/confirm-modal';
 
 @Component({
   changeDetection: ChangeDetectionStrategy.OnPush,
   selector: 'app-products',
   standalone: true,
-  imports: [MatIconModule, FormsModule, CommonModule, ConfirmModal],
+  imports: [MatIconModule, FormsModule, CommonModule, ConfirmModal, CurrencyPipe],
   template: `
     <div class="space-y-6 md:space-y-10">
       <div class="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-6 bg-white p-6 md:p-8 rounded-2xl md:rounded-[2rem] shadow-sm border border-zinc-200/60">
-        <div class="flex-1">
-          <h2 class="text-xl md:text-2xl font-black text-zinc-900 tracking-tight">Gestión de Productos</h2>
-          <p class="text-xs md:text-sm text-zinc-500 font-medium">Control de inventario, costos y precios de venta</p>
+        <div class="flex items-center gap-4 flex-1">
+          <div class="p-3 bg-zinc-900 rounded-2xl text-white shadow-lg shadow-zinc-200">
+            <mat-icon>inventory_2</mat-icon>
+          </div>
+          <div>
+            <h2 class="text-xl md:text-2xl font-black text-zinc-900 tracking-tight">Gestión de Productos</h2>
+            <p class="text-xs md:text-sm text-zinc-500 font-medium">Control de inventario, costos y precios de venta</p>
+          </div>
+        </div>
+
+        <!-- Inventory Value Metric -->
+        <div class="bg-zinc-50 px-6 py-4 rounded-2xl border border-zinc-200/50 flex flex-col items-center sm:items-end">
+          <span class="text-[10px] font-black text-zinc-400 uppercase tracking-widest">Valor Total Inventario</span>
+          <p class="text-xl font-black text-zinc-900 font-mono tracking-tighter">{{ financeService.totalInventoryCost() | currency }}</p>
         </div>
         
         <div class="flex flex-col sm:flex-row items-stretch sm:items-center gap-4 w-full lg:w-auto">

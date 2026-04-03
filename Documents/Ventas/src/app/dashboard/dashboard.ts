@@ -78,6 +78,16 @@ import * as d3 from 'd3';
           <p class="text-xl font-black text-emerald-600 mt-1 font-mono">{{ totalNetProfit() | currency }}</p>
         </div>
 
+        <div class="bg-white p-6 rounded-3xl shadow-sm border border-zinc-200/60 group hover:border-orange-200 transition-all">
+          <div class="flex justify-between items-start mb-4">
+            <div class="p-2 bg-orange-500 rounded-xl text-white shadow-lg shadow-orange-200">
+              <mat-icon class="text-sm">shopping_bag</mat-icon>
+            </div>
+          </div>
+          <span class="text-[10px] font-bold text-zinc-400 uppercase tracking-widest">Compras Stock</span>
+          <p class="text-xl font-black text-orange-600 mt-1 font-mono">{{ financeService.totalPurchases() | currency }}</p>
+        </div>
+
         <div class="bg-white p-6 rounded-3xl shadow-sm border border-zinc-200/60 group hover:border-red-200 transition-all">
           <div class="flex justify-between items-start mb-4">
             <div class="p-2 bg-red-50 rounded-xl text-red-600">
@@ -97,6 +107,17 @@ import * as d3 from 'd3';
           </div>
           <span class="text-[10px] font-bold text-zinc-400 uppercase tracking-widest">Inversión Total</span>
           <p class="text-xl font-black text-zinc-900 mt-1 font-mono">{{ totalInvestmentCombined() | currency }}</p>
+        </div>
+
+        <div class="bg-white p-6 rounded-3xl shadow-sm border border-zinc-200/60 group hover:border-blue-200 transition-all">
+          <div class="flex justify-between items-start mb-4">
+            <div class="p-2 bg-blue-500 rounded-xl text-white shadow-lg shadow-blue-200">
+              <mat-icon class="text-sm">refresh</mat-icon>
+            </div>
+            <span class="text-[10px] font-black text-blue-600 bg-blue-50 px-2 py-1 rounded-full">20%</span>
+          </div>
+          <span class="text-[10px] font-bold text-zinc-400 uppercase tracking-widest">Fondo Reinversión</span>
+          <p class="text-xl font-black text-blue-600 mt-1 font-mono">{{ (allTimeGrossProfit() * 0.2) - financeService.totalPurchases() | currency }}</p>
         </div>
 
         <div class="bg-zinc-900 p-6 rounded-3xl shadow-xl border border-zinc-800 group transition-all">
@@ -411,7 +432,8 @@ export class Dashboard implements AfterViewInit {
   allTimeGrossProfit = computed(() => this.financeService.sales().reduce((sum, s) => sum + s.grossProfit, 0));
   allTimeInvestment = computed(() => this.financeService.investments().reduce((sum, i) => sum + i.capital, 0));
   allTimeExpenses = computed(() => this.financeService.expenses().reduce((sum, e) => sum + e.amount, 0));
-  allTimeOutgoings = computed(() => this.allTimeInvestment() + this.allTimeExpenses());
+  allTimePurchases = computed(() => this.financeService.purchases().reduce((sum, p) => sum + p.totalAmount, 0));
+  allTimeOutgoings = computed(() => this.allTimeInvestment() + this.allTimeExpenses() + this.allTimePurchases());
 
   profitDistribution = computed(() => {
     const total = this.allTimeGrossProfit() || 1;

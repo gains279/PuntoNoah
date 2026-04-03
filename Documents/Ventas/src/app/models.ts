@@ -53,6 +53,21 @@ export interface Expense {
   date: number;
 }
 
+export interface PurchaseItem {
+  productId: string;
+  quantity: number;
+  costPrice: number;
+}
+
+export interface Purchase {
+  id: string;
+  items: PurchaseItem[];
+  date: number;
+  totalAmount: number;
+  supplier?: string;
+  description?: string;
+}
+
 export interface AppSettings {
   appName: string;
   recoveryPct: number;
